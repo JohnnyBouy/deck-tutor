@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Deck Officer Oral Tutor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --bg:#ffffff; --border:#e5e7eb; --pill:#eef6ff; --gray:#555; }
+    body{ font-family: ui-sans-serif,system-ui; margin:0; background:var(--bg); }
+    .wrap{ max-width:760px; margin:24px auto; padding:0 16px; }
+    h1{ font-size:20px; margin:4px 0 12px; }
+    .log{ border:1px solid var(--border); border-radius:12px; padding:12px;
+          height:62vh; overflow:auto; background:#fff; }
+    .msg{ max-width:85%; padding:10px 12px; border-radius:12px; margin:6px 0; white-space:pre-wrap; }
+    .u{ background:var(--pill); margin-left:auto; }
+    .a{ background:#f7f7f7; }
+    .row{ display:flex; gap:8px; margin-top:10px; }
+    input{ flex:1; padding:10px; border:1px solid var(--border); border-radius:10px; }
+    button{ padding:10px 14px; border:none; border-radius:10px; background:#0b6bcb; color:#fff; cursor:pointer; }
+    .hint{ color:var(--gray); font-size:12px; margin-top:8px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Deck Officer Oral Tutor</h1>
+    <div id="log" class="log"></div>
+    <div class="row">
+      <input id="input" placeholder="Type here (e.g., 'COLREG Rule 19 scenario')" />
+      <button id="send">Send</button>
+    </div>
+    <div class="hint">Tip: In Notion, use <code>/embed</code> and paste this page’s URL.</div>
+  </div>
+
+  <script>
+    const log = document.getElementById('log');
+    const input = document.getElementById('input');
+    const send = document.getElementById('send');
+    const userId = self.crypto?.randomUUID?.() || String(Math.random());
+
+    const messages = [
+      { role: "assistant", content: "Welcome aboard. Focus on a single topic, a mixed set, or run a mock exam?" }
+    ];
+    render();
+
+    send.onclick = sendMsg;
+    input.addEventListener('keydown', (e)=>{ if(e.key==='Enter') sendMsg(); });
+
+    async function sendMsg(){
+      const text = input.value.trim();
+      if(!text) return;
+      messages.push({ role: "user", content: text });
+      input.value = "";
+      render();
+
+      try{
+        const res = await fetch("/.netlify/functions/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages, userId })
+        });
+        if(!res.ok){
+          const t = await res.text();
+          throw new Error(t || ("HTTP "+res.status));
+        }
+        const { reply } = await res.json();
+        messages.push(reply);
+      }catch(err){
+        messages.push({ role:"assistant", content:"Sorry, I hit an error: " + (err.message || err) });
+      }
+      render();
+    }
+
+    function render(){
+      log.innerHTML = messages.map(m => `<div class="msg ${m.role==='user'?'u':'a'}">${escapeHtml(m.content)}</div>`).join("");
+      log.scrollTop = log.scrollHeight;
+    }
+    function escapeHtml(s){ return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  </script>
+</body>
+</html>
